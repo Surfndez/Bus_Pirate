@@ -26,7 +26,7 @@ Thankfully, [USBEprom](http://dangerousprototypes.com/forum/index.php?topic=8498
 
 #### Instructions
 
-<b>If you already have Bootloader v4.5, skip to [Install the I<sup>2</sup>C Debug Firmware](#install-the-i<sup>2</sup>c-debug-firmware)</b>
+<b>If you already have Bootloader v4.5, skip to [Install the I<sup>2</sup>C Debug Firmware](#install-the-i2c-debug-firmware)</b>
 
 1. <i>(Optional)</i> Run a [Self-Test](http://dangerousprototypes.com/blog/2009/07/28/bus-pirate-self-test-guide/) to make sure your Bus Pirate is functioning before starting.
 
@@ -167,3 +167,44 @@ For the direct connection method, since only low speed I<sup>2</sup>C is involve
 ![Wrapping Wires](Documentation/images/hdmi-wire-wrap.jpg "Wrapping Wires")
 ![Applying Heat Shrink](Documentation/images/hdmi-heat-shrink.jpg "Applying Heat Shrink")
 ![Finished Cable](Documentation/images/hdmi-breakout.jpg "Finished Cable")
+
+## Protocol Description
+
+The I<sup>2</sup>C device address of 0xDE is used for bus writes, 0xDF for reads. After the first byte provides the device address and data direction, the next byte shall be a 3 bit opcode and a 5 bit size field.
+
+<table style="border: 1px solid;">
+<tr><td colspan="3" style="border: 1px solid; text-align: center;">Opcode</td>
+<td colspan="5" style="border: 1px solid; text-align: center;">Size</td></tr>
+<tr><td style="border: 1px solid;">7</td><td style="border: 1px solid;">6</td>
+<td style="border: 1px solid;">5</td><td style="border: 1px solid;">4</td>
+<td style="border: 1px solid;">3</td><td style="border: 1px solid;">2</td>
+<td style="border: 1px solid;">1</td><td style="border: 1px solid;">0</td></tr>
+</table>
+
+At time of writting, the following opcode are supported:
+
+| Opcode | Description | Meaning of Size Field
+| - | - | - |
+| 0 | Write Data | Number of bytes to be written
+| 1 | Read Data | Number of bytes to be read
+| 2 | Get Status | Always 1
+
+### Write Data Opcode
+
+Transfers data from the target to the Bus Pirate, which is when sent over USB. After the opcode and size, the I<sup>2</sup>C master will transmit "n" bytes where "n" is equal to the size field.
+
+Example Waveform:
+![Example Write Waveform](Documentation/images/i2c-debug-write-example.png "Example Write Waveform")
+This waveform shows two bytes being written, 0x0D and 0x0A.
+
+### Read Data Opcode
+
+Transfers data from the Bus Pirate to the target. After the opcode and size, the Bus Pirate will transmit "n" bytes where "n" is equal to the size field. Data recieved by the Bus Pirate over USB is stored in a buffer on the Bus Pirate. Since the I<sup>2</sup>C bus does not provide any mechanism of generating interrupts, this data will sit in the Bus Pirate's data buffer until the I<sup>2</sup>C master sends the read opcode to empty data out of the buffer.
+
+Example Waveform:
+![Example Read Waveform](Documentation/images/i2c-debug-read-example.png "Example Read Waveform")
+This waveform shows one byte being read, 0xFF.
+
+### Get Status Opcode
+
+Asks the Bus Pirate how many bytes are in the Bus Pirate's internal buffer waiting to be read. After the opcode and size, the Bus Pirate will transmit 1 byte. This byte is the number of bytes currently in the Bus Pirate's buffer. If 256 bytes or more are in the buffer, then 0xFF will be returned.
